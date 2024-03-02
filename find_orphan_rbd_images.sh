@@ -12,7 +12,7 @@
 
 AUTHOR="Richard J. Durso"
 RELDATE="03/02/2024"
-VERSION="0.10"
+VERSION="0.11"
 ###############################################################################
 
 # ---[ Init Routines ]---------------------------------------------------------
@@ -41,21 +41,21 @@ __usage() {
   and you manually delete the PV, the RBD image will remain consuming storage
   space until the image is removed.
 
-  Script is designed for Kubernetes' Rook-Ceph. Required local kubectl with
+  Script is designed for Kubernetes' Rook-Ceph. Requires local kubectl with
   Rook-Ceph krew plugin installed.
 
   -a, --all         : Check all RBD Images (in pool of the storage class type)
-  -d, --debug       : Show additional information
-  -p, --pool        : Name of Ceph RBD Block Pool to check
   -c, --class       : Name of Ceph Storage Class to check
   -i, --image       : Check single RBD Image name
   -n, --namespace   : Kubernetes namespace where rook-ceph is installed
+  -p, --pool        : Name of Ceph RBD Block Pool to check
+  -q, --quiet       : Reduced output
   -h, --help        : This usage statement
   -v, --version     : Script version
 
-  ${0##*/} [--debug] -a [--pool ${POOL_NAME}] [--class ${STORAGE_CLASS}] [--namespace ${ROOK_NAMESPACE}]
+  ${0##*/} [--quiet] -a [--pool ${POOL_NAME}] [--class ${STORAGE_CLASS}] [--namespace ${ROOK_NAMESPACE}]
 
-  ${0##*/} [-d ] -i csi-vol-<image_name> [-p ${POOL_NAME}] [-c ${STORAGE_CLASS}] [-n ${ROOK_NAMESPACE}]
+  ${0##*/} [-q ] -i csi-vol-<image_name> [-p ${POOL_NAME}] [-c ${STORAGE_CLASS}] [-n ${ROOK_NAMESPACE}]
   "
 }  
 
@@ -132,7 +132,7 @@ __init() {
   IMAGES_TO_DELETE=0
   IMAGES_TO_SKIP=0
 
-  if [ "$DEBUG" == "$TRUE" ]; then
+  if [ "$QUIET" -ne "$TRUE" ]; then
     echo "PVs found: ${PV_TOTAL}"
     echo "RBD Images: ${IMAGES_TOTAL}"
     echo
@@ -146,7 +146,7 @@ ROOK_NAMESPACE="rook-ceph"
 
 FALSE=0
 TRUE=1
-DEBUG="$FALSE"
+QUIET="$FALSE"
 timestamp_format="+%Y-%m-%dT%H:%M:%S%z"  # 2023-09-25T12:56:02-0400
 
 # ---[ Process Argument List ]-------------------------------------------------
@@ -159,17 +159,17 @@ if [ "$#" -ne 0 ]; then
         __test_ceph_pool_name
         __test_ceph_storage_class
         ;;
-      -d|--debug)
-        DEBUG="$TRUE"
-        ;;
-      -p|--pool)
-        POOL_NAME="$2"
-        ;;
       -c|--class)
         STORAGE_CLASS="$2"
         ;;
       -n|--namespace)
         ROOK_NAMESPACE="$2"
+        ;;
+      -p|--pool)
+        POOL_NAME="$2"
+        ;;
+      -q|--quiet)
+        QUIET="$TRUE"
         ;;
       -h|--help)
         __usage
@@ -211,7 +211,7 @@ for IMAGE in "${RBD_IMAGES[@]}"; do
   # if the RBD image is not listed in the PV list then look closer at the image
   if (awk '$2~/'"${FIND_IMAGE}"'/{ print $2 }' "${MYTMPDIR}/pv_list.txt" | grep -q .)
   then
-    if [ "$DEBUG" == "$TRUE" ]; then
+    if [ "$QUIET" -ne "$TRUE" ]; then
       echo "RBD Image: ${IMAGE} has PV, skipping."
       PV_FOUND=$((PV_FOUND+1))
     fi
@@ -222,14 +222,14 @@ for IMAGE in "${RBD_IMAGES[@]}"; do
       echo "--[ RBD Image can be deleted! ]----------------------------------------"
       # supress "warning: fast-diff map is not enabled"
       kubectl -n "${ROOK_NAMESPACE}" exec -it deploy/rook-ceph-tools -- rbd --pool "${POOL_NAME}" du "${IMAGE}" | grep -v "fast-diff"
-      if [ "$DEBUG" == "$TRUE" ]; then
+      if [ "$QUIET" -ne "$TRUE" ]; then
         # show additional details is debug is enabled
         kubectl -n "${ROOK_NAMESPACE}" exec -it deploy/rook-ceph-tools -- rbd --pool "${POOL_NAME}" info "${IMAGE}" | grep 'timestamp\|size\|count'
       fi
       echo "-----------------------------------------------------------------------"
       IMAGES_TO_DELETE=$((IMAGES_TO_DELETE+1))
     else
-      if [ "$DEBUG" == "$TRUE" ]; then
+      if [ "$QUIET" -ne "$TRUE" ]; then
         echo "RBD Immage: ${IMAGE} has watcher, skipping."
         IMAGES_TO_SKIP=$((IMAGES_TO_SKIP+1))
       fi
@@ -237,7 +237,7 @@ for IMAGE in "${RBD_IMAGES[@]}"; do
   fi
 done
 
-if [ "$DEBUG" == "$TRUE" ]; then
+if [ "$QUIET" -ne "$TRUE" ]; then
   echo
   echo "Matched ${PV_FOUND} of ${PV_TOTAL} PVs. Possible ${IMAGES_TO_DELETE} RBD Images can be deleted of the ${IMAGES_TOTAL} total images (${IMAGES_TO_SKIP} considered still had watchers)"
   echo
