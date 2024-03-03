@@ -83,11 +83,13 @@ __load_pv_list_by_storage_class() {
 
 __load_rbd_images_by_ceph_block_pool() {
   if [ -n "$1" ]; then
+    # if $1 has value then specific image was requested.  Validate image name
     if kubectl -n "${ROOK_NAMESPACE}" exec -it deploy/rook-ceph-tools -- rbd status --pool "${POOL_NAME}" "$1" > /dev/null 2> /dev/null
     then 
       RBD_IMAGES="$1"
     fi
   else
+    # Load up all images / remove snapshots from the list
     mapfile -t RBD_IMAGES < <(kubectl -n "${ROOK_NAMESPACE}" exec -it deploy/rook-ceph-tools -- rbd ls "${POOL_NAME}" | sed '/^csi-snap-.*/d')
   fi
 }
@@ -116,15 +118,19 @@ __test_ceph_storage_class() {
 __init() {
 
   __load_pv_list_by_storage_class
+  # if $1 has a value of "image" then $2 must contain the image name
   if [ "$1" == "image" ]; then
     if [ -z "$2" ]; then
       __error_message "Image flag specified without image name"
       exit 2
     fi
+    # Load up the requested image name
     __load_rbd_images_by_ceph_block_pool "$2"
   else
+    # Load up all the image names
     __load_rbd_images_by_ceph_block_pool
   fi
+  
   # Tracking counters for summary line
   PV_TOTAL=$(< "${MYTMPDIR}/pv_list.txt" wc -l)
   PV_FOUND=0
