@@ -1,7 +1,7 @@
 
 # Find Orphaned Ceph RBD Images
 
-Script tries to locate stale/orphaned RBD images which are no longer referenced by existing PVs (Persistent Volumes). The respective PVs have already been deleted.  This can happen when `reclaimPolicy: Retain` is set and someone has manually delete the PV. The Ceph RBD image will remain consuming storage space until it is removed. See <https://github.com/rook/rook/issues/4651>
+Script tries to locate stale/orphaned Ceph RBD images which are no longer referenced by existing Kubernetes PV (Persistent Volume). The respective PV has already been deleted.  This can happen when Rook-Ceph `reclaimPolicy: Retain` is set and someone has manually delete the PV that was in `Released` state. Unfortunately removal of the PV does not remove the RBD image.  The Ceph RBD image will remain consuming storage space until it is removed. See <https://github.com/rook/rook/issues/4651>
 
 * The script will NOT remove any images for you. It will only help you identify images which can be removed.
 
@@ -40,8 +40,12 @@ This is the normal way to run the script, scan all RBD images.
 
 ```shell
 $ ./find_orphan_rbd_images.sh -a
+
+PVs found: 34
+RBD Images: 110
+
 RBD Image: csi-vol-00b2e9e7-65e7-11ed-a2b8-ea677ad8a25d has PV, skipping.
---[ RBD Image can be deleted! ]----------------------------------------
+--[ RBD Image has no Persistent Volume (PV) ]----------------------------
 NAME                                          PROVISIONED  USED
 csi-vol-00b3557e-624c-4892-8ed9-2d1ffc9683db       10 GiB  72 MiB
 size 10 GiB in 2560 objects
@@ -49,8 +53,8 @@ snapshot_count: 0
 create_timestamp: Wed Aug 23 12:21:36 2023
 access_timestamp: Wed Aug 23 12:21:36 2023
 modify_timestamp: Wed Aug 23 12:21:36 2023
------------------------------------------------------------------------
---[ RBD Image can be deleted! ]----------------------------------------
+-------------------------------------------------------------------------
+--[ RBD Image has no Persistent Volume (PV) ]----------------------------
 NAME                                          PROVISIONED  USED
 csi-vol-00b88510-767e-4c1e-93f4-bed07e559d6a        1 GiB  64 MiB
 size 1 GiB in 256 objects
@@ -58,73 +62,81 @@ snapshot_count: 0
 create_timestamp: Mon Feb 26 14:53:35 2024
 access_timestamp: Mon Feb 26 14:53:35 2024
 modify_timestamp: Mon Feb 26 14:53:35 2024
------------------------------------------------------------------------
+-------------------------------------------------------------------------
 
 ... ( lines removed for brevity )
 
---[ RBD Image can be deleted! ]----------------------------------------
+--[ RBD Image has no Persistent Volume (PV) ]----------------------------
+NAME                                          PROVISIONED  USED
+csi-vol-cbaa0262-461e-4fe8-a8bb-07f655bb423f       50 GiB  872 MiB
+size 50 GiB in 12800 objects
+snapshot_count: 3
+create_timestamp: Tue Feb 27 15:42:34 2024
+access_timestamp: Tue Feb 27 15:42:34 2024
+modify_timestamp: Tue Feb 27 15:42:34 2024
+-------------------------------------------------------------------------
+RBD Image: csi-vol-cc9349ec-c871-43d1-9bb8-0e63898e0d8c has PV, skipping.
+RBD Image: csi-vol-cfb44755-66a9-11ed-a2b8-ea677ad8a25d has PV, skipping.
+RBD Image: csi-vol-d01a63f6-684d-11ed-a2b8-ea677ad8a25d has PV, skipping.
+RBD Image: csi-vol-d78d76ea-ee48-4f5d-b1c0-c34ce4e6c07f has PV, skipping.
+RBD Image: csi-vol-d7ac3bba-abef-11ed-9116-960dd16b9a1c has PV, skipping.
+RBD Image: csi-vol-ede26e4a-8a25-11ed-9b4d-0ecde2b23cd0 has PV, skipping.
+--[ RBD Image has no Persistent Volume (PV) ]----------------------------
 NAME                                          PROVISIONED  USED
 csi-vol-f8fb1f75-ab0c-4b80-b43c-1455215d2732       50 GiB  948 MiB
 size 50 GiB in 12800 objects
-snapshot_count: 6
+snapshot_count: 4
 create_timestamp: Mon Feb 26 15:56:01 2024
 access_timestamp: Mon Feb 26 15:56:01 2024
 modify_timestamp: Mon Feb 26 15:56:01 2024
------------------------------------------------------------------------
---[ RBD Image can be deleted! ]----------------------------------------
-NAME                                          PROVISIONED  USED
-csi-vol-fbc03112-67c1-407c-b988-67073f6567a8       50 GiB  44 MiB
-size 50 GiB in 12800 objects
-snapshot_count: 0
-create_timestamp: Wed Feb 28 16:00:04 2024
-access_timestamp: Wed Feb 28 16:00:04 2024
-modify_timestamp: Wed Feb 28 16:00:04 2024
------------------------------------------------------------------------
+-------------------------------------------------------------------------
 
 Matched 34 of 34 PVs. Possible 76 RBD Images can be deleted of the 110 total images (0 considered still had watchers)
 ```
 
 ### List all RBD Images in quiet mode
 
-Same as above with quiet mode flag set.
+Same as above with (`-q`) `quiet mode` flag set. Quiet mode runs faster as details of each image is not queried. However, it is not known if the RBD image has snapshots in quiet mode.
 
 ```shell
 $ ./find_orphan_rbd_images.sh -q -a
 
---[ RBD Image can be deleted! ]----------------------------------------
+--[ RBD Image has no Persistent Volume (PV) ]----------------------------
 NAME                                          PROVISIONED  USED
 csi-vol-00b3557e-624c-4892-8ed9-2d1ffc9683db       10 GiB  72 MiB
------------------------------------------------------------------------
---[ RBD Image can be deleted! ]----------------------------------------
+-------------------------------------------------------------------------
+--[ RBD Image has no Persistent Volume (PV) ]----------------------------
 NAME                                          PROVISIONED  USED
 csi-vol-00b88510-767e-4c1e-93f4-bed07e559d6a        1 GiB  64 MiB
------------------------------------------------------------------------
---[ RBD Image can be deleted! ]----------------------------------------
+-------------------------------------------------------------------------
+--[ RBD Image has no Persistent Volume (PV) ]----------------------------
 NAME                                          PROVISIONED  USED
 csi-vol-01668759-1751-4138-bb75-8bcbb7f9f35a        1 GiB  96 MiB
------------------------------------------------------------------------
+-------------------------------------------------------------------------
 
 ...
 
---[ RBD Image can be deleted! ]----------------------------------------
+--[ RBD Image has no Persistent Volume (PV) ]----------------------------
 NAME                                          PROVISIONED  USED
-csi-vol-f42f0674-a75e-11ed-9116-960dd16b9a1c        1 GiB  760 MiB
------------------------------------------------------------------------
---[ RBD Image can be deleted! ]----------------------------------------
+csi-vol-8429e6bb-d15e-4c16-be27-dceec440d53d       20 GiB  292 MiB
+-------------------------------------------------------------------------
+--[ RBD Image has no Persistent Volume (PV) ]----------------------------
+NAME                                          PROVISIONED  USED
+csi-vol-cbaa0262-461e-4fe8-a8bb-07f655bb423f       50 GiB  872 MiB
+-------------------------------------------------------------------------
+--[ RBD Image has no Persistent Volume (PV) ]----------------------------
 NAME                                          PROVISIONED  USED
 csi-vol-f8fb1f75-ab0c-4b80-b43c-1455215d2732       50 GiB  948 MiB
------------------------------------------------------------------------
---[ RBD Image can be deleted! ]----------------------------------------
-NAME                                          PROVISIONED  USED
-csi-vol-fbc03112-67c1-407c-b988-67073f6567a8       50 GiB  44 MiB
------------------------------------------------------------------------
+-------------------------------------------------------------------------
 ```
 
 ---
 
 ## Remove orphaned image
 
-Once you have identified images which can be removed, you can use the Rook-Ceph Toolbox Pod to remove images. The script will not remove any images for you. It will only help you identify images which can be removed.
+An RBD image not referenced by a PV, has no watchers and has zero snapshots is a candidate for removal.
+
+Once you have identified images which can be removed, you can use the Rook-Ceph Toolbox Pod to remove images. This script will *NOT* remove any images for you. It will only help you identify images which can be removed.
 
 From Rook-Ceph Toolbox pod:
 
@@ -135,10 +147,10 @@ Removing image: 100% complete...done.
 
 ### Attempting to remove orphaned image with snapshots
 
-RBD image with snapshots can not be removed.  If you try, an error message will be issued.
+RBD image with snapshots can not be removed:
 
 ```shell
---[ RBD Image can be deleted! ]----------------------------------------
+--[ RBD Image has no Persistent Volume (PV) ]----------------------------
 NAME                                          PROVISIONED  USED
 csi-vol-f8fb1f75-ab0c-4b80-b43c-1455215d2732       50 GiB  948 MiB
 size 50 GiB in 12800 objects
@@ -146,12 +158,16 @@ snapshot_count: 6
 create_timestamp: Mon Feb 26 15:56:01 2024
 access_timestamp: Mon Feb 26 15:56:01 2024
 modify_timestamp: Mon Feb 26 15:56:01 2024
+-------------------------------------------------------------------------
 ```
+
+* If you try, an error message will be issued:
 
 From Rook-Ceph Toolbox pod:
 
 ```shell
 $ rbd -p ceph-blockpool rm csi-vol-f8fb1f75-ab0c-4b80-b43c-1455215d2732
+
 2024-03-02T04:13:09.419+0000 7f9034c0f580 -1 librbd::api::Image: remove: image has snapshots - not removing
 Removing image: 0% complete...failed.
 rbd: image has snapshots with linked clones - these must be deleted or flattened before the image can be removed.
@@ -161,7 +177,7 @@ rbd: image has snapshots with linked clones - these must be deleted or flattened
 
 ## Testing RBD Image with associated PV
 
-If an RBD image is associated to a PV it is NOT a candidate for image removal. Below shows how to get the RBD IMage Name associated with a PV.
+If an RBD image is associated to a PV it is NOT a candidate for image removal. Below shows how to use `kubectl` to get the RBD Image Name associated with a PV.
 
 ```shell
 $ kubectl get pv pvc-fcc86902-bfb7-4ca7-ab21-7e69b8035227 -o 'custom-columns=NAME:.spec.claimRef.name,STORAGECLASS:.spec.storageClassName,IMAGENAME:.spec.csi.volumeAttributes.imageName'
@@ -198,7 +214,8 @@ An RBD image not referenced by a PV, has no watchers and has zero snapshots is a
 
 ```shell
 $ ./find_orphan_rbd_images.sh -i csi-vol-fcfe42b0-4218-442a-ba3e-0b793c31fd19
---[ RBD Image can be deleted! ]----------------------------------------
+
+--[ RBD Image has no Persistent Volume (PV) ]----------------------------
 NAME                                          PROVISIONED  USED
 csi-vol-fcfe42b0-4218-442a-ba3e-0b793c31fd19       20 GiB  1.8 GiB
 size 20 GiB in 5120 objects
@@ -206,7 +223,7 @@ snapshot_count: 0
 create_timestamp: Mon Apr 17 12:48:00 2023
 access_timestamp: Mon Apr 17 12:48:00 2023
 modify_timestamp: Mon Apr 17 12:48:00 2023
------------------------------------------------------------------------
+-------------------------------------------------------------------------
 
 Matched 0 of 34 PVs. Possible 1 RBD Images can be deleted of the 1 total images (0 considered still had watchers)
 ```
@@ -215,10 +232,8 @@ Matched 0 of 34 PVs. Possible 1 RBD Images can be deleted of the 1 total images 
 
 ```shell
 $ ./find_orphan_rbd_images.sh -q -i csi-vol-fcfe42b0-4218-442a-ba3e-0b793c31fd19
---[ RBD Image can be deleted! ]----------------------------------------
+--[ RBD Image has no Persistent Volume (PV) ]----------------------------
 NAME                                          PROVISIONED  USED
 csi-vol-fcfe42b0-4218-442a-ba3e-0b793c31fd19       20 GiB  1.8 GiB
------------------------------------------------------------------------
+-------------------------------------------------------------------------
 ```
-
----

@@ -11,8 +11,8 @@
 # NOTE: Script requires the rook-ceph plugin for kubectl installed
 
 AUTHOR="Richard J. Durso"
-RELDATE="03/02/2024"
-VERSION="0.11"
+RELDATE="03/03/2024"
+VERSION="0.12"
 ###############################################################################
 
 # ---[ Init Routines ]---------------------------------------------------------
@@ -32,7 +32,7 @@ __usage() {
   echo "
   ${0##*/} | Version: ${VERSION} | ${RELDATE} | ${AUTHOR}
 
-  Locate stale/orphaned Ceph RBD images no longer referenced by an existing PV
+  Locate Stale/Orphaned Ceph RBD images no longer referenced by an existing PV
   -----------------------------------------------------------------------------
 
   This script will look at all existing PVs (Persistant Volumes) and cross
@@ -135,7 +135,7 @@ __init() {
   PV_TOTAL=$(< "${MYTMPDIR}/pv_list.txt" wc -l)
   PV_FOUND=0
   IMAGES_TOTAL="${#RBD_IMAGES[@]}"
-  IMAGES_TO_DELETE=0
+  IMAGES_NO_PV=0
   IMAGES_TO_SKIP=0
 
   if [ "$QUIET" -ne "$TRUE" ]; then
@@ -225,15 +225,15 @@ for IMAGE in "${RBD_IMAGES[@]}"; do
     # Determine if the RBD image has any watchers
     if (kubectl -n "${ROOK_NAMESPACE}" exec -it deploy/rook-ceph-tools -- rbd status --pool "${POOL_NAME}" "${IMAGE}" | grep -q "Watchers: none")
     then
-      echo "--[ RBD Image can be deleted! ]----------------------------------------"
+      echo "--[ RBD Image has no Persistent Volume (PV) ]----------------------------"
       # supress "warning: fast-diff map is not enabled"
       kubectl -n "${ROOK_NAMESPACE}" exec -it deploy/rook-ceph-tools -- rbd --pool "${POOL_NAME}" du "${IMAGE}" | grep -v "fast-diff"
       if [ "$QUIET" -ne "$TRUE" ]; then
         # show additional details is debug is enabled
         kubectl -n "${ROOK_NAMESPACE}" exec -it deploy/rook-ceph-tools -- rbd --pool "${POOL_NAME}" info "${IMAGE}" | grep 'timestamp\|size\|count'
       fi
-      echo "-----------------------------------------------------------------------"
-      IMAGES_TO_DELETE=$((IMAGES_TO_DELETE+1))
+      echo "-------------------------------------------------------------------------"
+      IMAGES_NO_PV=$((IMAGES_NO_PV+1))
     else
       if [ "$QUIET" -ne "$TRUE" ]; then
         echo "RBD Immage: ${IMAGE} has watcher, skipping."
@@ -245,6 +245,6 @@ done
 
 if [ "$QUIET" -ne "$TRUE" ]; then
   echo
-  echo "Matched ${PV_FOUND} of ${PV_TOTAL} PVs. Possible ${IMAGES_TO_DELETE} RBD Images can be deleted of the ${IMAGES_TOTAL} total images (${IMAGES_TO_SKIP} considered still had watchers)"
+  echo "Matched ${PV_FOUND} of ${PV_TOTAL} PVs. Possible ${IMAGES_NO_PV} RBD Images can be deleted of the ${IMAGES_TOTAL} total images (${IMAGES_TO_SKIP} considered still had watchers)"
   echo
 fi
