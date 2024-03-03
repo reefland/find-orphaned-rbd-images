@@ -1,11 +1,13 @@
 
 # Find Orphaned Ceph RBD Images
 
-Script tries to locate stale/orphaned Ceph RBD images which are no longer referenced by existing Kubernetes PV (Persistent Volume). The respective PV has already been deleted.  This can happen when Rook-Ceph `reclaimPolicy: Retain` is set and someone has manually delete the PV that was in `Released` state. Unfortunately removal of the PV does not remove the RBD image.  The Ceph RBD image will remain consuming storage space until it is removed. See <https://github.com/rook/rook/issues/4651>
+Script tries to locate stale/orphaned Ceph RBD images which are no longer referenced by existing Kubernetes PV (Persistent Volume). The respective PV has already been deleted.  This can happen when Rook-Ceph `reclaimPolicy: Retain` is set and someone has manually delete the PV that was in `Released` status. Unfortunately removal of the PV does not remove the Ceph RBD image.  The Ceph RBD image will remain consuming storage space until it is removed. See <https://github.com/rook/rook/issues/4651>
 
 * The script will NOT remove any images for you. It will only help you identify images which can be removed.
 
-* *Script requires the [krew](https://krew.sigs.k8s.io/) rook-ceph plugin for kubectl installed*
+* *Script requires the [krew](https://krew.sigs.k8s.io/) rook-ceph plugin for `kubectl` installed*
+
+Running the script without any flags will show the usage statement.
 
 ---
 
@@ -13,7 +15,6 @@ Script tries to locate stale/orphaned Ceph RBD images which are no longer refere
 
 ```text
 -a, --all         : Check all RBD Images (in pool of the storage class type)
--c, --class       : Name of Ceph Storage Class to check
 -i, --image       : Check single RBD Image name
 -n, --namespace   : Kubernetes namespace where rook-ceph is installed
 -p, --pool        : Name of Ceph RBD Block Pool to check
@@ -22,15 +23,15 @@ Script tries to locate stale/orphaned Ceph RBD images which are no longer refere
 -v, --version     : Script version
 ```
 
-Defaults values for StorageClass, Ceph Pool and Namespace are shown in the usage statement / help screen example:
+Defaults values for Ceph Pool and Namespace are shown within the usage statement / help screen:
 
 ```text
-find_orphan_rbd_images.sh [--quiet] -a [--pool ceph-blockpool] [--class ceph-block] [--namespace rook-ceph]
+find_orphan_rbd_images.sh [--quiet] -a [--pool ceph-blockpool] [--namespace rook-ceph]
 
-find_orphan_rbd_images.sh [-q ] -i csi-vol-<image_name> [-p ceph-blockpool] [-c ceph-block] [-n rook-ceph]
+find_orphan_rbd_images.sh [-q ] -i csi-vol-<image_name> [-p ceph-blockpool] [-n rook-ceph]
 ```
 
-* If you need to use different values pass flags as required for your environment.
+* If you need to use different values set flags appropriate for your environment.
 
 ---
 

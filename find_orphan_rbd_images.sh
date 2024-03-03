@@ -12,7 +12,7 @@
 
 AUTHOR="Richard J. Durso"
 RELDATE="03/03/2024"
-VERSION="0.12"
+VERSION="0.13"
 ###############################################################################
 
 # ---[ Init Routines ]---------------------------------------------------------
@@ -41,11 +41,10 @@ __usage() {
   and you manually delete the PV, the RBD image will remain consuming storage
   space until the image is removed.
 
-  Script is designed for Kubernetes' Rook-Ceph. Requires local kubectl with
+  Script is designed for Kubernetes Rook-Ceph. Requires local kubectl with
   Rook-Ceph krew plugin installed.
 
   -a, --all         : Check all RBD Images (in pool of the storage class type)
-  -c, --class       : Name of Ceph Storage Class to check
   -i, --image       : Check single RBD Image name
   -n, --namespace   : Kubernetes namespace where rook-ceph is installed
   -p, --pool        : Name of Ceph RBD Block Pool to check
@@ -53,9 +52,9 @@ __usage() {
   -h, --help        : This usage statement
   -v, --version     : Script version
 
-  ${0##*/} [--quiet] -a [--pool ${POOL_NAME}] [--class ${STORAGE_CLASS}] [--namespace ${ROOK_NAMESPACE}]
+  ${0##*/} [--quiet] -a [--pool ${POOL_NAME}] [--namespace ${ROOK_NAMESPACE}]
 
-  ${0##*/} [-q ] -i csi-vol-<image_name> [-p ${POOL_NAME}] [-c ${STORAGE_CLASS}] [-n ${ROOK_NAMESPACE}]
+  ${0##*/} [-q ] -i csi-vol-<image_name> [-p ${POOL_NAME}] [-n ${ROOK_NAMESPACE}]
   "
 }  
 
@@ -68,12 +67,12 @@ __error_message() {
 
 # ---[ Create list of known PVs ]----------------------------------------------
 # PVs are not namespaced. A complete list of PVs will be fetched. The list will
-# be filtered to the specified Ceph storage class. Each Ceph RBD image will be
-# checked against this list
+# be filtered to just "rook-ceph" volumes. Each Ceph RBD image will be checked
+# against this list
 
 __load_pv_list_by_storage_class() {
   # get list of PVs using the storage class
-  kubectl get pv -o 'custom-columns=STORAGECLASS:.spec.storageClassName,VOLUMEHANDLE:.spec.csi.volumeHandle' | grep -E "(^|\s)${STORAGE_CLASS}(\$|\s)" > "${MYTMPDIR}/pv_list.txt"
+  kubectl get pv -o 'custom-columns=STORAGECLASS:.spec.storageClassName,VOLUMEHANDLE:.spec.csi.volumeHandle' | grep "rook-ceph" > "${MYTMPDIR}/pv_list.txt"
 }
 
 # ---[ Create List of RBD Images ]---------------------------------------------
@@ -94,20 +93,20 @@ __load_rbd_images_by_ceph_block_pool() {
   fi
 }
 
+# ---[ Confirm Ceph Namespace ]------------------------------------------------
+__test_rook_ceph_namespace() {
+  if ! kubectl -n "${ROOK_NAMESPACE}" exec -it deploy/rook-ceph-tools -- ceph -s > /dev/null 2> /dev/null
+  then 
+    __error_message "Invalid Rook-Ceph Namespace specified: ${ROOK_NAMESPACE}"
+    exit 2
+  fi
+}
+
 # ---[ Confirm Ceph Pool Name ]------------------------------------------------
 __test_ceph_pool_name() {
   if ! kubectl -n "${ROOK_NAMESPACE}" exec -it deploy/rook-ceph-tools -- rbd pool --pool "${POOL_NAME}" stats > /dev/null 2> /dev/null
   then
     __error_message "Invalid Ceph Pool Name specified: ${POOL_NAME}"
-    exit 2
-  fi
-}
-
-# ---[ Confirm Storage Class ]-------------------------------------------------
-__test_ceph_storage_class() {
-  if ! ( kubectl get sc "${STORAGE_CLASS}" | grep -q "ceph")
-  then
-    __error_message "Invalid Ceph Storage Class specified: ${STORAGE_CLASS}"
     exit 2
   fi
 }
@@ -147,7 +146,6 @@ __init() {
 
 # ---[ Default Values ]--------------------------------------------------------
 POOL_NAME="ceph-blockpool"
-STORAGE_CLASS="ceph-block"
 ROOK_NAMESPACE="rook-ceph"
 
 FALSE=0
@@ -162,11 +160,6 @@ if [ "$#" -ne 0 ]; then
     case "$1" in
       -a|--all)
         __init
-        __test_ceph_pool_name
-        __test_ceph_storage_class
-        ;;
-      -c|--class)
-        STORAGE_CLASS="$2"
         ;;
       -n|--namespace)
         ROOK_NAMESPACE="$2"
@@ -183,8 +176,6 @@ if [ "$#" -ne 0 ]; then
         ;;
       -i|--image)
         __init "image" "$2"
-        __test_ceph_pool_name
-        __test_ceph_storage_class
         ;;
       -v|--version)
         echo "$VERSION"
@@ -206,6 +197,9 @@ else
   __usage
   exit 1
 fi
+
+__test_rook_ceph_namespace
+__test_ceph_pool_name
 
 for IMAGE in "${RBD_IMAGES[@]}"; do
   # remove the "csi-vol-" prefix when searching
