@@ -150,7 +150,7 @@ Removing image: 100% complete...done.
 
 RBD image with snapshots can not be removed:
 
-```shell
+```text
 --[ RBD Image has no Persistent Volume (PV) ]----------------------------
 NAME                                          PROVISIONED  USED
 csi-vol-f8fb1f75-ab0c-4b80-b43c-1455215d2732       50 GiB  948 MiB
@@ -173,6 +173,8 @@ $ rbd -p ceph-blockpool rm csi-vol-f8fb1f75-ab0c-4b80-b43c-1455215d2732
 Removing image: 0% complete...failed.
 rbd: image has snapshots with linked clones - these must be deleted or flattened before the image can be removed.
 ```
+
+NOTE: RBD Images removed can be snapshots of other images.  As you removed RBD images you may notice the snapshot count of other images lower. They may reach zero allowing them to be removed.  Keep running the script and removing RBD images that have zero snapshot count.
 
 ---
 
