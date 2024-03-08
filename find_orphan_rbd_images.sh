@@ -11,8 +11,8 @@
 # NOTE: Script requires the rook-ceph plugin for kubectl installed
 
 AUTHOR="Richard J. Durso"
-RELDATE="03/03/2024"
-VERSION="0.13"
+RELDATE="03/08/2024"
+VERSION="0.14"
 ###############################################################################
 
 # ---[ Init Routines ]---------------------------------------------------------
@@ -46,6 +46,7 @@ __usage() {
 
   -a, --all         : Check all RBD Images (in pool of the storage class type)
   -i, --image       : Check single RBD Image name
+  -l, --list-pools  : List all pools with \"${BLOCK_POOLNAME_KEYWORD}\" in the name
   -n, --namespace   : Kubernetes namespace where rook-ceph is installed
   -p, --pool        : Name of Ceph RBD Block Pool to check
   -q, --quiet       : Reduced output
@@ -111,6 +112,21 @@ __test_ceph_pool_name() {
   fi
 }
 
+# ---[ List Pool Names by Keyword ]--------------------------------------------
+# List all Ceph pool names containing keyword specified by $1
+__list_pool_names() {
+if [ "$#" -ne 1 ]; then
+  echo "** Internal error, __list_pool_names() called without required argument."
+  exit 1
+else
+  if [ "$QUIET" -ne "$TRUE" ]; then
+    echo "Pools found with keyword: $1"
+  fi
+  kubectl -n "${ROOK_NAMESPACE}" exec -it deploy/rook-ceph-tools -- ceph osd pool ls | grep "$1"
+  exit 0
+fi
+}
+
 # ---[ Initial Variables and Load Data ]---------------------------------------
 # Initialize variables and load PV and RBD Images
 
@@ -147,6 +163,7 @@ __init() {
 # ---[ Default Values ]--------------------------------------------------------
 POOL_NAME="ceph-blockpool"
 ROOK_NAMESPACE="rook-ceph"
+BLOCK_POOLNAME_KEYWORD="block"
 
 FALSE=0
 TRUE=1
@@ -159,7 +176,10 @@ if [ "$#" -ne 0 ]; then
   do
     case "$1" in
       -a|--all)
-        __init
+        PROCESS_ALL_IMAGES="$TRUE"
+        ;;
+      -l|--list-pools)
+        __list_pool_names ${BLOCK_POOLNAME_KEYWORD}
         ;;
       -n|--namespace)
         ROOK_NAMESPACE="$2"
@@ -175,7 +195,8 @@ if [ "$#" -ne 0 ]; then
         exit 0
         ;;
       -i|--image)
-        __init "image" "$2"
+        PROCESS_ALL_IMAGES="$FALSE"
+        PROCESS_IMAGE="$2"
         ;;
       -v|--version)
         echo "$VERSION"
@@ -196,6 +217,12 @@ if [ "$#" -ne 0 ]; then
 else
   __usage
   exit 1
+fi
+
+if [ "$PROCESS_ALL_IMAGES" -eq "$TRUE" ]; then
+  __init
+else
+  __init "image" "$PROCESS_IMAGE"
 fi
 
 __test_rook_ceph_namespace
@@ -221,16 +248,22 @@ for IMAGE in "${RBD_IMAGES[@]}"; do
     then
       echo "--[ RBD Image has no Persistent Volume (PV) ]----------------------------"
       # supress "warning: fast-diff map is not enabled"
-      kubectl -n "${ROOK_NAMESPACE}" exec -it deploy/rook-ceph-tools -- rbd --pool "${POOL_NAME}" du "${IMAGE}" | grep -v "fast-diff"
+      if ! kubectl -n "${ROOK_NAMESPACE}" exec -it deploy/rook-ceph-tools -- rbd --pool "${POOL_NAME}" du "${IMAGE}" | grep -v "fast-diff"
+      then
+        echo "** Rook error check is image has PV."
+      fi
       if [ "$QUIET" -ne "$TRUE" ]; then
         # show additional details is debug is enabled
-        kubectl -n "${ROOK_NAMESPACE}" exec -it deploy/rook-ceph-tools -- rbd --pool "${POOL_NAME}" info "${IMAGE}" | grep 'timestamp\|size\|count'
+        if ! kubectl -n "${ROOK_NAMESPACE}" exec -it deploy/rook-ceph-tools -- rbd --pool "${POOL_NAME}" info "${IMAGE}" | grep 'timestamp\|size\|count'
+        then
+          echo "** Rook error getting image info."
+        fi
       fi
       echo "-------------------------------------------------------------------------"
       IMAGES_NO_PV=$((IMAGES_NO_PV+1))
     else
       if [ "$QUIET" -ne "$TRUE" ]; then
-        echo "RBD Immage: ${IMAGE} has watcher, skipping."
+        echo "RBD Image: ${IMAGE} has watcher, skipping."
         IMAGES_TO_SKIP=$((IMAGES_TO_SKIP+1))
       fi
     fi
