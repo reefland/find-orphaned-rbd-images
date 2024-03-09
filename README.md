@@ -16,6 +16,7 @@ Running the script without any flags will show the usage statement.
 ```text
 -a, --all         : Check all RBD Images (in pool of the storage class type)
 -i, --image       : Check single RBD Image name
+-l, --list-pools  : List all pools with "block" in the name
 -n, --namespace   : Kubernetes namespace where rook-ceph is installed
 -p, --pool        : Name of Ceph RBD Block Pool to check
 -q, --quiet       : Reduced output
@@ -44,6 +45,7 @@ $ ./find_orphan_rbd_images.sh -a
 
 PVs found: 34
 RBD Images: 110
+RBD Pool: ceph-blockpool
 
 RBD Image: csi-vol-00b2e9e7-65e7-11ed-a2b8-ea677ad8a25d has PV, skipping.
 --[ RBD Image has no Persistent Volume (PV) ]----------------------------
@@ -207,7 +209,7 @@ $ ./find_orphan_rbd_images.sh -q -i csi-vol-b513c1de-6e88-4e0d-aa70-a114e8fd482f
 # no output
 ```
 
-* No output when quiet mode enabled and image can not be removed.
+* No output when quiet mode enabled and image cannot be removed.
 
 ---
 
