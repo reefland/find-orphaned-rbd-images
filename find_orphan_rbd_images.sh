@@ -11,8 +11,8 @@
 # NOTE: Script requires the rook-ceph plugin for kubectl installed
 
 AUTHOR="Richard J. Durso"
-RELDATE="03/08/2024"
-VERSION="0.14"
+RELDATE="03/09/2024"
+VERSION="0.15"
 ###############################################################################
 
 # ---[ Init Routines ]---------------------------------------------------------
@@ -156,6 +156,7 @@ __init() {
   if [ "$QUIET" -ne "$TRUE" ]; then
     echo "PVs found: ${PV_TOTAL}"
     echo "RBD Images: ${IMAGES_TOTAL}"
+    echo "RBD Pool: ${POOL_NAME}"
     echo
   fi
 }
